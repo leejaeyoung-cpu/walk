@@ -50,15 +50,44 @@ def generate_dept_report(dept_name, year, save_dir):
                  ha='center', va='top', fontsize=title_fontsize, fontweight='bold')
 
         # 2. 예산 요약 표 (상단 영역: y=0.55 ~ 0.90)
-        # add_axes([left, bottom, width, height])
         ax_table = fig.add_axes([0.1, 0.55, 0.8, 0.35])
         ax_table.axis('off')
         
+        # 표 데이터 준비 (최대 15행 제한)
         table_df = df.copy()
         table_df.columns = ['월', '사업내용', '본당보조', '자체', '계']
         table_df['월'] = table_df['월'].apply(lambda x: f"{x}월" if x > 0 else '-')
+        
+        # 금액 포맷팅 함수
+        def fmt_money(x):
+            return f"{x:,.0f}"
+
+        # 데이터가 너무 많으면 자르기
+        max_rows = 15
+        if len(table_df) > max_rows:
+            # 상위 14개만 남기고
+            truncated_df = table_df.iloc[:14].copy()
+            
+            # 나머지 합계 계산
+            remaining = table_df.iloc[14:]
+            remaining_count = len(remaining)
+            remaining_subsidy = remaining['본당보조'].sum()
+            remaining_self = remaining['자체'].sum()
+            remaining_total = remaining['계'].sum()
+            
+            # 요약 행 추가
+            summary_row = pd.DataFrame({
+                '월': ['-'],
+                '사업내용': [f"... 외 {remaining_count}건"],
+                '본당보조': [remaining_subsidy],
+                '자체': [remaining_self],
+                '계': [remaining_total]
+            })
+            table_df = pd.concat([truncated_df, summary_row])
+
+        # 포맷팅 적용
         for col in ['본당보조', '자체', '계']:
-            table_df[col] = table_df[col].apply(lambda x: f"{x:,.0f}")
+            table_df[col] = table_df[col].apply(fmt_money)
 
         table = ax_table.table(
             cellText=table_df.values,
@@ -67,11 +96,13 @@ def generate_dept_report(dept_name, year, save_dir):
             loc='center',
             colColours=['#e6f2ff']*len(table_df.columns)
         )
-        # 표 높이/폰트 조정 (데이터 양에 따라 자동 조절되지만 영역은 고정)
+        # 표 높이/폰트 조정
         table.auto_set_font_size(False)
-        table.set_fontsize(10)
-        # 행 높이 계산: 영역 높이 / (행 개수 + 헤더)
-        # 너무 작아지지 않게 최소 높이 보장 로직은 생략하고, 기본 스케일 사용
+        table.set_fontsize(9) # 폰트 더 축소
+        # 행 높이 고정 (영역 안에 딱 맞게)
+        # 0.35 높이 안에 (행 개수 + 1)개가 들어가야 함
+        row_height = 1.0 / (len(table_df) + 1)
+        # 너무 커지거나 작아지지 않게 제한
         table.scale(1, 1.5)
 
         # 3. 파이 차트 (하단 좌측 영역: y=0.15 ~ 0.45, x=0.05 ~ 0.45)
