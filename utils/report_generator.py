@@ -132,13 +132,13 @@ def generate_dept_report(dept_name, year, save_dir):
             ax_pie.add_artist(centre_circle)
             ax_pie.set_title("사업별 예산 비중", fontsize=16, fontweight='bold', pad=20)
             
-            # 범례를 오른쪽으로 더 멀리 이동
+            # 범례를 왼쪽으로 다시 당김 (차트와 가깝게)
             ax_pie.legend(
                 wedges, 
                 labels_with_pct, 
                 title="사업명 (비중)", 
                 loc="center left", 
-                bbox_to_anchor=(1.2, 0.5), # 차트에서 더 떨어뜨림 (1.0 -> 1.2)
+                bbox_to_anchor=(0.95, 0.5), # 1.2 -> 0.95로 당김
                 fontsize='small',
                 ncol=1
             )
