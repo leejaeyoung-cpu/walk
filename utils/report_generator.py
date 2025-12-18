@@ -106,8 +106,8 @@ def generate_dept_report(dept_name, year, save_dir):
         table.scale(1, 1.5)
 
         # 3. 파이 차트 (하단 좌측 영역: y=0.20 ~ 0.50, x=0.05 ~ 0.40)
-        # 차트 크기를 약간 줄이고 왼쪽으로 붙임
-        ax_pie = fig.add_axes([0.05, 0.20, 0.35, 0.3])
+        # 차트 크기를 더 줄여서(0.35 -> 0.28) 범례와 겹치지 않게 함
+        ax_pie = fig.add_axes([0.05, 0.22, 0.28, 0.28])
         pie_data = df.groupby('event_name')['total'].sum().sort_values(ascending=False)
         
         if not pie_data.empty and pie_data.sum() > 0:
@@ -132,13 +132,13 @@ def generate_dept_report(dept_name, year, save_dir):
             ax_pie.add_artist(centre_circle)
             ax_pie.set_title("사업별 예산 비중", fontsize=16, fontweight='bold', pad=20)
             
-            # 범례를 오른쪽으로 이동 (파이 차트와 막대 차트 사이)
+            # 범례를 오른쪽으로 더 멀리 이동
             ax_pie.legend(
                 wedges, 
                 labels_with_pct, 
                 title="사업명 (비중)", 
                 loc="center left", 
-                bbox_to_anchor=(1.0, 0.5), # 차트 오른쪽 중앙
+                bbox_to_anchor=(1.2, 0.5), # 차트에서 더 떨어뜨림 (1.0 -> 1.2)
                 fontsize='small',
                 ncol=1
             )
