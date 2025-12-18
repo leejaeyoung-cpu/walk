@@ -148,30 +148,37 @@ def generate_dept_report(dept_name, year, save_dir):
         # 4. 막대 차트 (하단 우측 영역: y=0.15 ~ 0.45, x=0.55 ~ 0.95)
         ax_bar = fig.add_axes([0.55, 0.15, 0.4, 0.3])
         
+        # 1~12월 데이터 확보 (데이터가 없어도 0으로 채움)
         valid_monthly_df = df[df['month'] > 0]
+        
         if not valid_monthly_df.empty:
             monthly_subsidy = valid_monthly_df.groupby('month')['church_subsidy'].sum()
             monthly_self = valid_monthly_df.groupby('month')['self_funded'].sum()
-            months = monthly_subsidy.index
-            
-            ax_bar.bar(months, monthly_subsidy, color='#ff9999', alpha=0.9, label='본당보조')
-            ax_bar.bar(months, monthly_self, bottom=monthly_subsidy, color='#66b3ff', alpha=0.9, label='자체')
-            
-            ax_bar.set_title("월별 지출 계획 (재원별)", fontsize=16, fontweight='bold', pad=20)
-            ax_bar.set_xlabel("월")
-            ax_bar.set_ylabel("금액 (천원)")
-            ax_bar.set_xticks(months)
-            ax_bar.grid(axis='y', linestyle='--', alpha=0.5)
-            ax_bar.legend(loc='upper right')
-            
-            # 값 표시 (너무 겹치면 생략 가능하지만 일단 유지)
-            for i, month in enumerate(months):
-                total = monthly_subsidy.get(month, 0) + monthly_self.get(month, 0)
-                if total > 0:
-                    ax_bar.text(month, total, f'{int(total):,}', ha='center', va='bottom', fontsize=8)
         else:
-            ax_bar.text(0.5, 0.5, "월별 데이터 없음", ha='center', va='center')
-            ax_bar.axis('off')
+            monthly_subsidy = pd.Series(dtype=float)
+            monthly_self = pd.Series(dtype=float)
+            
+        # 1~12월로 재색인 (없는 달은 0)
+        months_range = range(1, 13)
+        monthly_subsidy = monthly_subsidy.reindex(months_range, fill_value=0)
+        monthly_self = monthly_self.reindex(months_range, fill_value=0)
+        
+        ax_bar.bar(months_range, monthly_subsidy, color='#ff9999', alpha=0.9, label='본당보조')
+        ax_bar.bar(months_range, monthly_self, bottom=monthly_subsidy, color='#66b3ff', alpha=0.9, label='자체')
+        
+        ax_bar.set_title("월별 지출 계획 (재원별)", fontsize=16, fontweight='bold', pad=20)
+        ax_bar.set_xlabel("월")
+        ax_bar.set_ylabel("금액 (천원)")
+        ax_bar.set_xticks(months_range)
+        ax_bar.set_xticklabels([f"{m}" for m in months_range]) # 1~12 숫자만 표시
+        ax_bar.grid(axis='y', linestyle='--', alpha=0.5)
+        ax_bar.legend(loc='upper right', fontsize='small')
+        
+        # 값 표시
+        for month in months_range:
+            total = monthly_subsidy[month] + monthly_self[month]
+            if total > 0:
+                ax_bar.text(month, total, f'{int(total):,}', ha='center', va='bottom', fontsize=8)
 
         # 5. 총계 요약 (최하단 영역: y=0.02 ~ 0.12)
         ax_summary = fig.add_axes([0.1, 0.02, 0.8, 0.1])
