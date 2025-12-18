@@ -63,6 +63,13 @@ def get_members(plan_id):
         params=(plan_id,)
     )
     conn.close()
+    df = df.rename(columns={
+        'position': '직책',
+        'name': '성명',
+        'baptismal_name': '세례명',
+        'contact': '연락처',
+        'region': '구역'
+    })
     return df
 
 def save_members(plan_id, members_data):
@@ -171,6 +178,15 @@ def get_budgets(plan_id):
         params=(plan_id,)
     )
     conn.close()
+    df = df.rename(columns={
+        'month': '월',
+        'day': '일',
+        'weekday': '요일',
+        'event_name': '사업내용',
+        'church_subsidy': '본당보조',
+        'self_funded': '자체',
+        'total': '계'
+    })
     return df
 
 def save_budgets(plan_id, budgets_data):
@@ -235,3 +251,21 @@ def get_budget_summary_by_department(year):
     df = pd.read_sql(query, conn, params=(year,))
     conn.close()
     return df
+
+def get_annual_plan_goals(plan_id):
+    """연간 계획의 목표 조회"""
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute("SELECT goals FROM annual_plans WHERE id = ?", (plan_id,))
+    result = c.fetchone()
+    conn.close()
+    return result[0] if result else ""
+
+def update_annual_plan_goals(plan_id, goals):
+    """연간 계획의 목표 수정"""
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute("UPDATE annual_plans SET goals = ? WHERE id = ?", (goals, plan_id))
+    conn.commit()
+    conn.close()
+    return True
