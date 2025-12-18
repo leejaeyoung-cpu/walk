@@ -70,38 +70,43 @@ def generate_dept_report(dept_name, year, save_dir):
         table.set_fontsize(10) # 폰트 크기 약간 축소
         table.scale(1, 1.8)
 
-        # 2. 파이 차트 (사업별 비중) - 상위 N개 + 기타 처리
+        # 2. 파이 차트 (사업별 비중) - 상위 5개 + 기타 처리
         ax_pie = plt.subplot2grid((4, 2), (2, 0))
         pie_data = df.groupby('event_name')['total'].sum().sort_values(ascending=False)
         
         if not pie_data.empty and pie_data.sum() > 0:
-            # 항목이 10개 이상이면 상위 9개 + 기타로 묶음
-            if len(pie_data) > 10:
-                top_9 = pie_data.iloc[:9]
-                others = pd.Series([pie_data.iloc[9:].sum()], index=['기타'])
-                pie_data = pd.concat([top_9, others])
-                
+            # 항목이 6개 이상이면 상위 5개 + 기타로 묶음
+            if len(pie_data) > 6:
+                top_5 = pie_data.iloc[:5]
+                others_sum = pie_data.iloc[5:].sum()
+                others = pd.Series([others_sum], index=['기타'])
+                pie_data = pd.concat([top_5, others])
+            
+            # 퍼센트 계산
+            total_sum = pie_data.sum()
+            labels_with_pct = [f"{name} ({val/total_sum*100:.1f}%)" for name, val in zip(pie_data.index, pie_data.values)]
+            
             colors = plt.cm.Set3.colors
-            wedges, texts, autotexts = ax_pie.pie(
+            wedges, texts = ax_pie.pie( # autotexts 제거 (차트 안에 글자 안 씀)
                 pie_data, 
-                autopct='%1.1f%%', 
                 startangle=90, 
-                colors=colors, 
-                pctdistance=0.85,
-                textprops={'fontsize': 9} # 퍼센트 폰트 크기 축소
+                colors=colors,
+                labels=None # 차트 주변 라벨 제거
             )
+            
+            # 도넛 모양
             centre_circle = plt.Circle((0,0),0.70,fc='white')
             ax_pie.add_artist(centre_circle)
             ax_pie.set_title("사업별 예산 비중", fontsize=16, fontweight='bold')
             
-            # 범례 위치 및 폰트 조정 (그래프와 겹치지 않게)
+            # 범례에 퍼센트 포함하여 표시
             ax_pie.legend(
                 wedges, 
-                pie_data.index, 
-                title="사업명", 
+                labels_with_pct, 
+                title="사업명 (비중)", 
                 loc="center left", 
-                bbox_to_anchor=(0.95, 0, 0.5, 1), # 위치를 더 오른쪽으로
-                fontsize='small' # 폰트 크기 작게
+                bbox_to_anchor=(0.95, 0, 0.5, 1), 
+                fontsize='small'
             )
         else:
             ax_pie.text(0.5, 0.5, "데이터 없음", ha='center', va='center')
