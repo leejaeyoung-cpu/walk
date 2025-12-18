@@ -105,8 +105,9 @@ def generate_dept_report(dept_name, year, save_dir):
         # 너무 커지거나 작아지지 않게 제한
         table.scale(1, 1.5)
 
-        # 3. 파이 차트 (하단 좌측 영역: y=0.15 ~ 0.45, x=0.05 ~ 0.45)
-        ax_pie = fig.add_axes([0.05, 0.15, 0.4, 0.3])
+        # 3. 파이 차트 (하단 좌측 영역: y=0.20 ~ 0.50, x=0.05 ~ 0.45)
+        # 차트 위치를 위로 올려서(0.15 -> 0.20) 아래쪽 요약과 겹치지 않게 함
+        ax_pie = fig.add_axes([0.05, 0.20, 0.4, 0.3])
         pie_data = df.groupby('event_name')['total'].sum().sort_values(ascending=False)
         
         if not pie_data.empty and pie_data.sum() > 0:
@@ -145,8 +146,9 @@ def generate_dept_report(dept_name, year, save_dir):
             ax_pie.text(0.5, 0.5, "데이터 없음", ha='center', va='center')
             ax_pie.axis('off')
 
-        # 4. 막대 차트 (하단 우측 영역: y=0.15 ~ 0.45, x=0.55 ~ 0.95)
-        ax_bar = fig.add_axes([0.55, 0.15, 0.4, 0.3])
+        # 4. 막대 차트 (하단 우측 영역: y=0.20 ~ 0.50, x=0.55 ~ 0.95)
+        # 차트 위치를 위로 올려서(0.15 -> 0.20) 아래쪽 요약과 겹치지 않게 함
+        ax_bar = fig.add_axes([0.55, 0.20, 0.4, 0.3])
         
         # 1~12월 데이터 확보 (데이터가 없어도 0으로 채움)
         valid_monthly_df = df[df['month'] > 0]
