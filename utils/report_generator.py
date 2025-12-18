@@ -40,22 +40,23 @@ def generate_dept_report(dept_name, year, save_dir):
         df['self_funded'] = pd.to_numeric(df['self_funded'], errors='coerce').fillna(0)
         df['total'] = pd.to_numeric(df['total'], errors='coerce').fillna(0)
 
-        # 캔버스 설정
+        # 캔버스 설정 (A4 크기)
         fig = plt.figure(figsize=(11.69, 16.53)) 
         
-        # 제목 폰트 크기 자동 조절 (이름이 길면 작게)
+        # 1. 제목 (상단 고정)
+        # 제목 폰트 크기 자동 조절
         title_fontsize = 28 if len(dept_name) < 10 else 24
-        fig.suptitle(f"{year}년 {dept_name} 사업계획 보고서", fontsize=title_fontsize, fontweight='bold', y=0.96)
+        fig.text(0.5, 0.96, f"{year}년 {dept_name} 사업계획 보고서", 
+                 ha='center', va='top', fontsize=title_fontsize, fontweight='bold')
 
-        # 1. 예산 요약 표
-        ax_table = plt.subplot2grid((4, 2), (0, 0), colspan=2, rowspan=2)
+        # 2. 예산 요약 표 (상단 영역: y=0.55 ~ 0.90)
+        # add_axes([left, bottom, width, height])
+        ax_table = fig.add_axes([0.1, 0.55, 0.8, 0.35])
         ax_table.axis('off')
         
         table_df = df.copy()
         table_df.columns = ['월', '사업내용', '본당보조', '자체', '계']
-        # 월 표시: 0월은 '-'로 표시
         table_df['월'] = table_df['월'].apply(lambda x: f"{x}월" if x > 0 else '-')
-        
         for col in ['본당보조', '자체', '계']:
             table_df[col] = table_df[col].apply(lambda x: f"{x:,.0f}")
 
@@ -66,56 +67,56 @@ def generate_dept_report(dept_name, year, save_dir):
             loc='center',
             colColours=['#e6f2ff']*len(table_df.columns)
         )
+        # 표 높이/폰트 조정 (데이터 양에 따라 자동 조절되지만 영역은 고정)
         table.auto_set_font_size(False)
-        table.set_fontsize(10) # 폰트 크기 약간 축소
-        table.scale(1, 1.8)
+        table.set_fontsize(10)
+        # 행 높이 계산: 영역 높이 / (행 개수 + 헤더)
+        # 너무 작아지지 않게 최소 높이 보장 로직은 생략하고, 기본 스케일 사용
+        table.scale(1, 1.5)
 
-        # 2. 파이 차트 (사업별 비중) - 상위 5개 + 기타 처리
-        ax_pie = plt.subplot2grid((4, 2), (2, 0))
+        # 3. 파이 차트 (하단 좌측 영역: y=0.15 ~ 0.45, x=0.05 ~ 0.45)
+        ax_pie = fig.add_axes([0.05, 0.15, 0.4, 0.3])
         pie_data = df.groupby('event_name')['total'].sum().sort_values(ascending=False)
         
         if not pie_data.empty and pie_data.sum() > 0:
-            # 항목이 6개 이상이면 상위 5개 + 기타로 묶음
+            # 상위 5개 + 기타
             if len(pie_data) > 6:
                 top_5 = pie_data.iloc[:5]
                 others_sum = pie_data.iloc[5:].sum()
                 others = pd.Series([others_sum], index=['기타'])
                 pie_data = pd.concat([top_5, others])
             
-            # 퍼센트 계산
             total_sum = pie_data.sum()
             labels_with_pct = [f"{name} ({val/total_sum*100:.1f}%)" for name, val in zip(pie_data.index, pie_data.values)]
             
             colors = plt.cm.Set3.colors
-            wedges, texts = ax_pie.pie( # autotexts 제거 (차트 안에 글자 안 씀)
+            wedges, texts = ax_pie.pie(
                 pie_data, 
                 startangle=90, 
                 colors=colors,
-                labels=None # 차트 주변 라벨 제거
+                labels=None
             )
-            
-            # 도넛 모양
             centre_circle = plt.Circle((0,0),0.70,fc='white')
             ax_pie.add_artist(centre_circle)
-            ax_pie.set_title("사업별 예산 비중", fontsize=16, fontweight='bold')
+            ax_pie.set_title("사업별 예산 비중", fontsize=16, fontweight='bold', pad=20)
             
-            # 범례에 퍼센트 포함하여 표시
+            # 범례 (파이 차트 아래쪽 공간 활용)
             ax_pie.legend(
                 wedges, 
                 labels_with_pct, 
                 title="사업명 (비중)", 
-                loc="center left", 
-                bbox_to_anchor=(0.95, 0, 0.5, 1), 
-                fontsize='small'
+                loc="upper center", 
+                bbox_to_anchor=(0.5, -0.05), # 차트 바로 아래
+                fontsize='small',
+                ncol=1 # 한 줄로 길게
             )
         else:
             ax_pie.text(0.5, 0.5, "데이터 없음", ha='center', va='center')
             ax_pie.axis('off')
 
-        # 3. 누적 막대 차트 (월별 지출)
-        ax_bar = plt.subplot2grid((4, 2), (2, 1))
+        # 4. 막대 차트 (하단 우측 영역: y=0.15 ~ 0.45, x=0.55 ~ 0.95)
+        ax_bar = fig.add_axes([0.55, 0.15, 0.4, 0.3])
         
-        # 0월(미정) 제외하고 집계
         valid_monthly_df = df[df['month'] > 0]
         if not valid_monthly_df.empty:
             monthly_subsidy = valid_monthly_df.groupby('month')['church_subsidy'].sum()
@@ -125,23 +126,24 @@ def generate_dept_report(dept_name, year, save_dir):
             ax_bar.bar(months, monthly_subsidy, color='#ff9999', alpha=0.9, label='본당보조')
             ax_bar.bar(months, monthly_self, bottom=monthly_subsidy, color='#66b3ff', alpha=0.9, label='자체')
             
-            ax_bar.set_title("월별 지출 계획 (재원별)", fontsize=16, fontweight='bold')
+            ax_bar.set_title("월별 지출 계획 (재원별)", fontsize=16, fontweight='bold', pad=20)
             ax_bar.set_xlabel("월")
             ax_bar.set_ylabel("금액 (천원)")
             ax_bar.set_xticks(months)
             ax_bar.grid(axis='y', linestyle='--', alpha=0.5)
             ax_bar.legend(loc='upper right')
             
+            # 값 표시 (너무 겹치면 생략 가능하지만 일단 유지)
             for i, month in enumerate(months):
                 total = monthly_subsidy.get(month, 0) + monthly_self.get(month, 0)
                 if total > 0:
-                    ax_bar.text(month, total, f'{int(total):,}', ha='center', va='bottom', fontsize=9)
+                    ax_bar.text(month, total, f'{int(total):,}', ha='center', va='bottom', fontsize=8)
         else:
             ax_bar.text(0.5, 0.5, "월별 데이터 없음", ha='center', va='center')
             ax_bar.axis('off')
 
-        # 4. 총계 요약
-        ax_summary = plt.subplot2grid((4, 2), (3, 0), colspan=2)
+        # 5. 총계 요약 (최하단 영역: y=0.02 ~ 0.12)
+        ax_summary = fig.add_axes([0.1, 0.02, 0.8, 0.1])
         ax_summary.axis('off')
         total_budget = df['total'].sum()
         total_subsidy = df['church_subsidy'].sum()
@@ -157,15 +159,11 @@ def generate_dept_report(dept_name, year, save_dir):
 
         save_path = os.path.join(save_dir, f"{dept_name}_{year}_report.png")
         
-        try:
-            plt.tight_layout(rect=[0, 0.03, 1, 0.95])
-        except Exception as e:
-            print(f"⚠️ 레이아웃 조정 중 경고 발생 ({dept_name}): {e}")
-            plt.subplots_adjust(left=0.1, right=0.9, top=0.9, bottom=0.1)
-            
-        plt.savefig(save_path, dpi=150, bbox_inches='tight')
+        # tight_layout 제거 (절대 좌표 사용하므로 불필요)
+        plt.savefig(save_path, dpi=150) # bbox_inches='tight' 제거 (고정 크기 유지)
         plt.close()
         return True
+
     except Exception as e:
         print(f"❌ {dept_name} 보고서 생성 실패: {e}")
         import traceback
