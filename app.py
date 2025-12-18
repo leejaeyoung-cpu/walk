@@ -6,7 +6,7 @@ from database.db_setup import create_database
 from database.db_utils import (
     get_all_departments, create_department, get_or_create_annual_plan,
     get_members, get_budgets, update_members_from_df, update_budgets_from_df,
-    get_all_budgets_for_visualization
+    get_all_budgets_by_year
 )
 
 # 페이지 설정 (반드시 최상단)
@@ -74,7 +74,7 @@ if selected_dept_name == "전체 현황 (Dashboard)":
     st.title(f"📊 {year}년도 전체 사업계획 현황")
     
     # 전체 데이터 로드
-    all_budgets = get_all_budgets_for_visualization(year)
+    all_budgets = get_all_budgets_by_year(year)
     
     if not all_budgets.empty:
         # 주요 지표 (KPI)
