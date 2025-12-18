@@ -42,7 +42,10 @@ def generate_dept_report(dept_name, year, save_dir):
 
         # 캔버스 설정
         fig = plt.figure(figsize=(11.69, 16.53)) 
-        fig.suptitle(f"{year}년 {dept_name} 사업계획 보고서", fontsize=28, fontweight='bold', y=0.96)
+        
+        # 제목 폰트 크기 자동 조절 (이름이 길면 작게)
+        title_fontsize = 28 if len(dept_name) < 10 else 24
+        fig.suptitle(f"{year}년 {dept_name} 사업계획 보고서", fontsize=title_fontsize, fontweight='bold', y=0.96)
 
         # 1. 예산 요약 표
         ax_table = plt.subplot2grid((4, 2), (0, 0), colspan=2, rowspan=2)
@@ -64,22 +67,42 @@ def generate_dept_report(dept_name, year, save_dir):
             colColours=['#e6f2ff']*len(table_df.columns)
         )
         table.auto_set_font_size(False)
-        table.set_fontsize(11)
+        table.set_fontsize(10) # 폰트 크기 약간 축소
         table.scale(1, 1.8)
 
-        # 2. 파이 차트 (사업별 비중)
+        # 2. 파이 차트 (사업별 비중) - 상위 N개 + 기타 처리
         ax_pie = plt.subplot2grid((4, 2), (2, 0))
         pie_data = df.groupby('event_name')['total'].sum().sort_values(ascending=False)
         
         if not pie_data.empty and pie_data.sum() > 0:
+            # 항목이 10개 이상이면 상위 9개 + 기타로 묶음
+            if len(pie_data) > 10:
+                top_9 = pie_data.iloc[:9]
+                others = pd.Series([pie_data.iloc[9:].sum()], index=['기타'])
+                pie_data = pd.concat([top_9, others])
+                
             colors = plt.cm.Set3.colors
             wedges, texts, autotexts = ax_pie.pie(
-                pie_data, autopct='%1.1f%%', startangle=90, colors=colors, pctdistance=0.85
+                pie_data, 
+                autopct='%1.1f%%', 
+                startangle=90, 
+                colors=colors, 
+                pctdistance=0.85,
+                textprops={'fontsize': 9} # 퍼센트 폰트 크기 축소
             )
             centre_circle = plt.Circle((0,0),0.70,fc='white')
             ax_pie.add_artist(centre_circle)
             ax_pie.set_title("사업별 예산 비중", fontsize=16, fontweight='bold')
-            ax_pie.legend(wedges, pie_data.index, title="사업명", loc="center left", bbox_to_anchor=(1, 0, 0.5, 1))
+            
+            # 범례 위치 및 폰트 조정 (그래프와 겹치지 않게)
+            ax_pie.legend(
+                wedges, 
+                pie_data.index, 
+                title="사업명", 
+                loc="center left", 
+                bbox_to_anchor=(0.95, 0, 0.5, 1), # 위치를 더 오른쪽으로
+                fontsize='small' # 폰트 크기 작게
+            )
         else:
             ax_pie.text(0.5, 0.5, "데이터 없음", ha='center', va='center')
             ax_pie.axis('off')
