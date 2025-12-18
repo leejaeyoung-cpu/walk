@@ -20,6 +20,7 @@ def get_connection():
     return sqlite3.connect(DB_FILE)
 
 def generate_dept_report(dept_name, year, save_dir):
+    print(f"Processing: {dept_name}")
     conn = get_connection()
     query = """
         SELECT b.month, b.event_name, b.church_subsidy, b.self_funded, b.total
@@ -32,89 +33,116 @@ def generate_dept_report(dept_name, year, save_dir):
     df = pd.read_sql(query, conn, params=(dept_name, year))
     conn.close()
     
-    if df.empty:
+    try:
+        # 데이터 전처리 (타입 변환 및 결측치 처리)
+        df['month'] = pd.to_numeric(df['month'], errors='coerce').fillna(0).astype(int)
+        df['church_subsidy'] = pd.to_numeric(df['church_subsidy'], errors='coerce').fillna(0)
+        df['self_funded'] = pd.to_numeric(df['self_funded'], errors='coerce').fillna(0)
+        df['total'] = pd.to_numeric(df['total'], errors='coerce').fillna(0)
+
+        # 캔버스 설정
+        fig = plt.figure(figsize=(11.69, 16.53)) 
+        fig.suptitle(f"{year}년 {dept_name} 사업계획 보고서", fontsize=28, fontweight='bold', y=0.96)
+
+        # 1. 예산 요약 표
+        ax_table = plt.subplot2grid((4, 2), (0, 0), colspan=2, rowspan=2)
+        ax_table.axis('off')
+        
+        table_df = df.copy()
+        table_df.columns = ['월', '사업내용', '본당보조', '자체', '계']
+        # 월 표시: 0월은 '-'로 표시
+        table_df['월'] = table_df['월'].apply(lambda x: f"{x}월" if x > 0 else '-')
+        
+        for col in ['본당보조', '자체', '계']:
+            table_df[col] = table_df[col].apply(lambda x: f"{x:,.0f}")
+
+        table = ax_table.table(
+            cellText=table_df.values,
+            colLabels=table_df.columns,
+            cellLoc='center',
+            loc='center',
+            colColours=['#e6f2ff']*len(table_df.columns)
+        )
+        table.auto_set_font_size(False)
+        table.set_fontsize(11)
+        table.scale(1, 1.8)
+
+        # 2. 파이 차트 (사업별 비중)
+        ax_pie = plt.subplot2grid((4, 2), (2, 0))
+        pie_data = df.groupby('event_name')['total'].sum().sort_values(ascending=False)
+        
+        if not pie_data.empty and pie_data.sum() > 0:
+            colors = plt.cm.Set3.colors
+            wedges, texts, autotexts = ax_pie.pie(
+                pie_data, autopct='%1.1f%%', startangle=90, colors=colors, pctdistance=0.85
+            )
+            centre_circle = plt.Circle((0,0),0.70,fc='white')
+            ax_pie.add_artist(centre_circle)
+            ax_pie.set_title("사업별 예산 비중", fontsize=16, fontweight='bold')
+            ax_pie.legend(wedges, pie_data.index, title="사업명", loc="center left", bbox_to_anchor=(1, 0, 0.5, 1))
+        else:
+            ax_pie.text(0.5, 0.5, "데이터 없음", ha='center', va='center')
+            ax_pie.axis('off')
+
+        # 3. 누적 막대 차트 (월별 지출)
+        ax_bar = plt.subplot2grid((4, 2), (2, 1))
+        
+        # 0월(미정) 제외하고 집계
+        valid_monthly_df = df[df['month'] > 0]
+        if not valid_monthly_df.empty:
+            monthly_subsidy = valid_monthly_df.groupby('month')['church_subsidy'].sum()
+            monthly_self = valid_monthly_df.groupby('month')['self_funded'].sum()
+            months = monthly_subsidy.index
+            
+            ax_bar.bar(months, monthly_subsidy, color='#ff9999', alpha=0.9, label='본당보조')
+            ax_bar.bar(months, monthly_self, bottom=monthly_subsidy, color='#66b3ff', alpha=0.9, label='자체')
+            
+            ax_bar.set_title("월별 지출 계획 (재원별)", fontsize=16, fontweight='bold')
+            ax_bar.set_xlabel("월")
+            ax_bar.set_ylabel("금액 (천원)")
+            ax_bar.set_xticks(months)
+            ax_bar.grid(axis='y', linestyle='--', alpha=0.5)
+            ax_bar.legend(loc='upper right')
+            
+            for i, month in enumerate(months):
+                total = monthly_subsidy.get(month, 0) + monthly_self.get(month, 0)
+                if total > 0:
+                    ax_bar.text(month, total, f'{int(total):,}', ha='center', va='bottom', fontsize=9)
+        else:
+            ax_bar.text(0.5, 0.5, "월별 데이터 없음", ha='center', va='center')
+            ax_bar.axis('off')
+
+        # 4. 총계 요약
+        ax_summary = plt.subplot2grid((4, 2), (3, 0), colspan=2)
+        ax_summary.axis('off')
+        total_budget = df['total'].sum()
+        total_subsidy = df['church_subsidy'].sum()
+        total_self = df['self_funded'].sum()
+        
+        summary_text = (
+            f"총 예산 합계: {total_budget:,.0f} 천원\n\n"
+            f"──────────────\n\n"
+            f"본당 지원금: {total_subsidy:,.0f} 천원   |   자체 조달금: {total_self:,.0f} 천원"
+        )
+        ax_summary.text(0.5, 0.5, summary_text, ha='center', va='center', fontsize=20, fontweight='bold',
+                        bbox=dict(facecolor='#f8f9fa', edgecolor='#2c3e50', boxstyle='round,pad=2', linewidth=2))
+
+        save_path = os.path.join(save_dir, f"{dept_name}_{year}_report.png")
+        
+        try:
+            plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+        except Exception as e:
+            print(f"⚠️ 레이아웃 조정 중 경고 발생 ({dept_name}): {e}")
+            plt.subplots_adjust(left=0.1, right=0.9, top=0.9, bottom=0.1)
+            
+        plt.savefig(save_path, dpi=150, bbox_inches='tight')
+        plt.close()
+        return True
+    except Exception as e:
+        print(f"❌ {dept_name} 보고서 생성 실패: {e}")
+        import traceback
+        traceback.print_exc()
         return False
-
-    # 캔버스 설정
-    fig = plt.figure(figsize=(11.69, 16.53)) 
-    fig.suptitle(f"{year}년 {dept_name} 사업계획 보고서", fontsize=28, fontweight='bold', y=0.96)
-
-    # 1. 예산 요약 표
-    ax_table = plt.subplot2grid((4, 2), (0, 0), colspan=2, rowspan=2)
-    ax_table.axis('off')
-    
-    table_df = df.copy()
-    table_df.columns = ['월', '사업내용', '본당보조', '자체', '계']
-    table_df['월'] = table_df['월'].fillna('-').astype(str).apply(lambda x: x.replace('.0', '') + '월' if x != '-' else '-')
-    
-    for col in ['본당보조', '자체', '계']:
-        table_df[col] = table_df[col].apply(lambda x: f"{x:,.0f}")
-
-    table = ax_table.table(
-        cellText=table_df.values,
-        colLabels=table_df.columns,
-        cellLoc='center',
-        loc='center',
-        colColours=['#e6f2ff']*len(table_df.columns)
-    )
-    table.auto_set_font_size(False)
-    table.set_fontsize(11)
-    table.scale(1, 1.8)
-
-    # 2. 파이 차트 (사업별 비중)
-    ax_pie = plt.subplot2grid((4, 2), (2, 0))
-    pie_data = df.groupby('event_name')['total'].sum().sort_values(ascending=False)
-    colors = plt.cm.Set3.colors
-    
-    wedges, texts, autotexts = ax_pie.pie(
-        pie_data, autopct='%1.1f%%', startangle=90, colors=colors, pctdistance=0.85
-    )
-    centre_circle = plt.Circle((0,0),0.70,fc='white')
-    ax_pie.add_artist(centre_circle)
-    ax_pie.set_title("사업별 예산 비중", fontsize=16, fontweight='bold')
-    ax_pie.legend(wedges, pie_data.index, title="사업명", loc="center left", bbox_to_anchor=(1, 0, 0.5, 1))
-
-    # 3. 누적 막대 차트 (월별 지출)
-    ax_bar = plt.subplot2grid((4, 2), (2, 1))
-    monthly_subsidy = df.groupby('month')['church_subsidy'].sum()
-    monthly_self = df.groupby('month')['self_funded'].sum()
-    months = monthly_subsidy.index
-    
-    ax_bar.bar(months, monthly_subsidy, color='#ff9999', alpha=0.9, label='본당보조')
-    ax_bar.bar(months, monthly_self, bottom=monthly_subsidy, color='#66b3ff', alpha=0.9, label='자체')
-    
-    ax_bar.set_title("월별 지출 계획 (재원별)", fontsize=16, fontweight='bold')
-    ax_bar.set_xlabel("월")
-    ax_bar.set_ylabel("금액 (천원)")
-    ax_bar.set_xticks(months)
-    ax_bar.grid(axis='y', linestyle='--', alpha=0.5)
-    ax_bar.legend(loc='upper right')
-    
-    for i, month in enumerate(months):
-        total = monthly_subsidy[month] + monthly_self[month]
-        if total > 0:
-            ax_bar.text(month, total, f'{int(total):,}', ha='center', va='bottom', fontsize=9)
-
-    # 4. 총계 요약
-    ax_summary = plt.subplot2grid((4, 2), (3, 0), colspan=2)
-    ax_summary.axis('off')
-    total_budget = df['total'].sum()
-    total_subsidy = df['church_subsidy'].sum()
-    total_self = df['self_funded'].sum()
-    
-    summary_text = (
-        f"총 예산 합계: {total_budget:,.0f} 천원\n\n"
-        f"──────────────\n\n"
-        f"본당 지원금: {total_subsidy:,.0f} 천원   |   자체 조달금: {total_self:,.0f} 천원"
-    )
-    ax_summary.text(0.5, 0.5, summary_text, ha='center', va='center', fontsize=20, fontweight='bold',
-                    bbox=dict(facecolor='#f8f9fa', edgecolor='#2c3e50', boxstyle='round,pad=2', linewidth=2))
-
-    save_path = os.path.join(save_dir, f"{dept_name}_{year}_report.png")
-    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
-    plt.savefig(save_path, dpi=150, bbox_inches='tight')
-    plt.close()
-    return True
 
 def generate_all_reports_zip(year=2026):
     # 저장 디렉토리 설정
