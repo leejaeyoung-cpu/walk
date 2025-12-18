@@ -11,6 +11,7 @@ from database.db_utils import (
     get_members, get_budgets, update_members_from_df, update_budgets_from_df,
     get_all_budgets_by_year, get_annual_plan_goals, update_annual_plan_goals
 )
+from utils.report_generator import generate_all_reports_zip
 
 # 페이지 설정
 st.set_page_config(
@@ -58,6 +59,21 @@ with st.sidebar:
     
     st.divider()
     year = st.selectbox("📅 기준 연도", [2026, 2027, 2025], index=0)
+    
+    st.divider()
+    st.markdown("### 📥 보고서 다운로드")
+    if st.button("전체 보고서 생성 (ZIP)"):
+        with st.spinner("보고서를 생성 중입니다..."):
+            zip_path = generate_all_reports_zip(year)
+            
+            with open(zip_path, "rb") as f:
+                st.download_button(
+                    label="ZIP 파일 다운로드",
+                    data=f,
+                    file_name=f"church_reports_{year}.zip",
+                    mime="application/zip"
+                )
+        st.success("생성 완료!")
 
 # === 1. 홈 화면 ===
 if menu == "🏠 홈":
