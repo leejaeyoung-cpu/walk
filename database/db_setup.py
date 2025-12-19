@@ -25,6 +25,7 @@ def create_database():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             department_id INTEGER NOT NULL,
             year INTEGER NOT NULL,
+            goals TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (department_id) REFERENCES departments(id),
             UNIQUE(department_id, year)

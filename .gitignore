@@ -1,6 +1,47 @@
+# Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.Python
+
+# Virtual Environment
 .env
 .venv
 venv/
+env/
+ENV/
+
+# Streamlit
 .streamlit/secrets.toml
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Build files
+build/
+dist/
+*.exe
+*.spec
+
+# Reports and outputs
+reports/
+church_reports*/
+2026년 사업보고서/
+*.zip
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Documents
+*.docx
+*.doc

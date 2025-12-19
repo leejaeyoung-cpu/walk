@@ -14,7 +14,9 @@ except:
     pass
 plt.rcParams['axes.unicode_minus'] = False
 
-DB_FILE = "church_plan.db"
+# 프로젝트 루트의 DB 파일 경로 (절대 경로)
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DB_FILE = os.path.join(BASE_DIR, "church_plan.db")
 
 def get_connection():
     return sqlite3.connect(DB_FILE)

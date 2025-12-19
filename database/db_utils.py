@@ -94,6 +94,10 @@ def save_members(plan_id, members_data):
             member.get('region', '')
         ))
     
+    conn.commit()
+    conn.close()
+    return len(members_data)
+    
 def update_members_from_df(plan_id, df):
     """데이터프레임 내용을 바탕으로 회원 명단 업데이트 (기존 삭제 후 재등록)"""
     conn = get_connection()
@@ -141,9 +145,9 @@ def update_budgets_from_df(plan_id, df):
                     return int(val.replace(',', '').replace('원', ''))
                 return int(val) if val else 0
 
-            # 월/일 처리
-            month = int(row['월']) if row['월'] and row['월'] != '' else None
-            day = int(row['일']) if row['일'] and row['일'] != '' else None
+            # 월/일 처리 (NaN 및 빈 값 안전하게 처리)
+            month = int(row['월']) if not pd.isna(row['월']) and row['월'] != '' else None
+            day = int(row['일']) if not pd.isna(row['일']) and row['일'] != '' else None
 
             c.execute("""
                 INSERT INTO budgets (annual_plan_id, month, day, weekday, event_name, church_subsidy, self_funded, total) 
